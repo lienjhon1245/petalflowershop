@@ -1,0 +1,67 @@
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    background-color: #007bff; /* Sidebar background color */
+    color: white;
+    padding: 20px 10px;
+}
+
+.sidebar-header {
+    font-size: 1.25rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #ffffff; /* Sidebar header text color */
+}
+
+.nav {
+    padding: 0;
+    list-style: none;
+}
+
+.nav-link {
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 10px 15px;
+    border-radius: 5px;
+    text-decoration: none;
+    color: white;
+    display: block;
+    transition: background 0.3s ease;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.2); /* Hover effect for sidebar links */
+}
+
+/* Content */
+.dashboard-header {
+    border-bottom: 1px solid #ddd;
+    padding: 10px 20px;
+    background-color: #f8f9fa; /* Light background for header */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dashboard-main {
+    padding: 20px;
+}
+
+.dashboard-main .card {
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow for cards */
+}
+
+.dashboard-main .card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #333; /* Card title text color */
+}
+
+.dashboard-main .btn {
+    margin-right: 10px;
+}

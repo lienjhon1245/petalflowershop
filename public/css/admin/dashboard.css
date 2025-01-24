@@ -1,0 +1,81 @@
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+}
+
+.sidebar-header {
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.nav-link {
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 10px;
+    border-radius: 5px;
+    transition: background 0.3s ease;
+}
+
+.nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Content */
+.dashboard-header {
+    border-bottom: 1px solid #ddd;
+}
+
+.dashboard-main .card {
+    border-radius: 10px;
+}
+
+.dashboard-main .card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.dashboard-main .btn {
+    margin-right: 10px;
+}
+
+
+footer {
+    background-color: #343a40; /* Dark background */
+    color: white; /* White text */
+    padding: 20px 0; /* Padding for spacing */
+    text-align: center; /* Center-align text */
+    font-size: 14px; /* Font size for text */
+    margin-top: auto; /* Push footer to the bottom of the container */
+}
+
+footer p {
+    margin: 0; /* Remove default margin */
+    padding: 5px 0; /* Add padding between lines */
+}
+
+footer a {
+    color: white; /* White color for links */
+    text-decoration: none; /* Remove underline */
+    margin: 0 10px; /* Add spacing between links */
+}
+
+footer a:hover {
+    color: #f8f9fa; /* Light hover color */
+    text-decoration: underline; /* Add underline on hover */
+}
+
+footer .social-icons {
+    margin-top: 10px; /* Space between text and social icons */
+}
+
+footer .social-icons a {
+    margin: 0 5px; /* Space between icons */
+    font-size: 18px; /* Adjust icon size */
+}
+
+footer .social-icons a:hover {
+    color: #007bff; /* Hover effect for social media icons */
+}
