@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\StaffController;
-
+use App\Http\Controllers\CartController;
 Route::get('/', function () {
     return view('welcome');
 });
