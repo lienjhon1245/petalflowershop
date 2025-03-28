@@ -10,6 +10,7 @@ class Order extends Model
     use HasFactory;
     protected $table = 'orders';
     protected $fillable = [
+        'reference_number', // Add this line
         'name',       // Added the new name field
         'user_id',
         'customer_id',
@@ -27,6 +28,26 @@ class Order extends Model
         'proof',       // Add this line
     ];
 
+
+
+    protected static function boot()
+{
+    parent::boot();
+    
+    static::creating(function ($order) {
+        // Get the latest order
+        $latestOrder = static::latest()->first();
+        
+        // If no order exists, start from PPS0000000001, else increment from the last order
+        if (!$latestOrder) {
+            $order->reference_number = 'PPS0000000001';
+        } else {
+            $lastNumber = intval(substr($latestOrder->reference_number, 3));
+            $newNumber = str_pad($lastNumber + 1, 10, '0', STR_PAD_LEFT);
+            $order->reference_number = 'PPS' . $newNumber;
+        }
+    });
+}
     public function customer()
     {
         return $this->belongsTo(User::class, 'customer_id');

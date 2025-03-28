@@ -121,6 +121,7 @@ class OrderController extends Controller
                 'image' => $validated['image'] ?? null, // Add image field
                 'status' => 'pending',
                 'notes' => $validated['notes'] ?? null
+                // No need to set reference_number - it's handled by the boot method
             ]);
 
             // Copy cart items to order items
@@ -153,7 +154,10 @@ class OrderController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Order placed successfully',
-                'data' => $order
+                'data' => [
+                    'order' => $order,
+                    'reference_number' => $order->reference_number // Include the auto-generated reference
+                ]
             ]);
 
         } catch (ValidationException $e) {
@@ -593,6 +597,7 @@ class OrderController extends Controller
                 // Format the order
                 $formattedOrders[] = [
                     'id' => $order->id,
+                    'reference_number' => $order->reference_number, // Add this line
                     'name' => $order->name,
                     'customer_id' => $order->customer_id,
                     'status' => $order->status,
