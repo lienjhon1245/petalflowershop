@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Product;
+use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
@@ -15,6 +15,6 @@ class ProductController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $products
-        ], 200);
+        ]);
     }
 }

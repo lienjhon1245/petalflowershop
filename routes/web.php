@@ -5,7 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ManagerController;
 use App\Http\Controllers\StaffController;
-use App\Http\Controllers\CartController;
+
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -92,5 +93,6 @@ Route::prefix('staff')->name('staff.')->group(function () {
 
 // Resource controller for staff
 Route::resource('staff', StaffController::class);
+
 
 require __DIR__.'/auth.php';

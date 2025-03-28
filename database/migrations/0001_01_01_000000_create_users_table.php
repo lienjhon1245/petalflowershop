@@ -15,8 +15,15 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->string('address');
+            $table->integer('age');
+            $table->string('contact_number');
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->enum('role', ['customer', 'delivery_man'])->default('customer');
+            // Delivery man specific fields
+            $table->string('vehicle_type')->nullable();
+            $table->string('license_number')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
