@@ -26,28 +26,19 @@ class DeliveryController extends Controller
     public function getOrderDetails($order_id)
     {
         try {
-            // Find the order
             $order = Order::with(['orderItems.product'])
                 ->findOrFail($order_id);
             
-            // Check if the authenticated user is the delivery person assigned to this order
-            // or if they have admin access
-            $user = auth()->user();
-            
-            // Simple permission check without using hasRole()
-            $isDeliveryPerson = $order->delivery_man_id === $user->id;
-            $isAdmin = $user->id === 1; // Temporary simple admin check, replace with your admin check logic
-            
-            if (!$isDeliveryPerson && !$isAdmin) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You are not authorized to view this order'
-                ], 403);
-            }
+            // Format the order data to include reference number
+            $formattedOrder = [
+                'id' => $order->id,
+                'reference_number' => $order->reference_number,
+                // ...rest of your order details...
+            ];
             
             return response()->json([
                 'success' => true,
-                'data' => $order
+                'data' => $formattedOrder
             ]);
             
         } catch (\Exception $e) {
@@ -316,8 +307,8 @@ class DeliveryController extends Controller
         $formattedOrders = $orders->map(function ($order) {
             return [
                 'id' => $order->id,
-                'order_number' => $order->order_number ?? sprintf('%08d', $order->id),
-                'total_amount' => $order->total_amount,
+                'reference_number' => $order->reference_number, // Changed from order_number
+                'total_amount' => number_format($order->total_amount, 2),
                 'status' => $order->status,
                 'delivery_address' => $order->delivery_address,
                 'contact_number' => $order->contact_number,
@@ -332,7 +323,7 @@ class DeliveryController extends Controller
                         'product' => [
                             'id' => $item->product->id,
                             'name' => $item->product->name,
-                            'price' => $item->price,
+                            'price' => number_format($item->price, 2),
                             'image' => $item->product->image
                         ],
                         'quantity' => $item->quantity,

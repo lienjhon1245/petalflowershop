@@ -316,7 +316,7 @@ class OrderController extends Controller
             $formattedOrders = $orders->map(function ($order) {
                 return [
                     'id' => $order->id,
-                    'order_number' => str_pad($order->id, 8, '0', STR_PAD_LEFT),
+                    'reference_number' => $order->reference_number, // Changed from order_number
                     'total_amount' => number_format($order->total_amount, 2),
                     'status' => $order->status,
                     'delivery_address' => $order->delivery_address,

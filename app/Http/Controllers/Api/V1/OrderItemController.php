@@ -22,7 +22,7 @@ class OrderItemController extends Controller
     public function index($orderId)
     {
         try {
-            $order = Order::findOrFail($orderId);
+            $order = Order::with('items.product')->findOrFail($orderId);
             
             // Check if user is authorized to view this order's items
             $isAdmin = Auth::user()->role === 'admin';
@@ -36,20 +36,44 @@ class OrderItemController extends Controller
                 ], Response::HTTP_FORBIDDEN);
             }
             
-            $orderItems = OrderItem::where('order_id', $orderId)
-                ->with('product')
-                ->get();
-                
+            // Format order items response
+            $formattedItems = $order->items->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'image' => $item->image ?? ($item->product ? $item->product->image : null),
+                    'quantity' => (int)$item->quantity,
+                    'price' => number_format((float)$item->price, 2, '.', ''),
+                    'total_price' => number_format((float)$item->total_price, 2, '.', ''),
+                    'custom_message' => $item->custom_message,
+                    'delivery_date' => $item->delivery_date,
+                    'product' => $item->product ? [
+                        'id' => $item->product->id,
+                        'name' => $item->product->name,
+                        'image' => $item->product->image,
+                        'price' => number_format((float)$item->product->price, 2, '.', '')
+                    ] : null
+                ];
+            });
+            
             // Calculate total amount
-            $totalAmount = $orderItems->sum('total_price');
+            $totalAmount = $order->items->sum('total_price');
             
             return response()->json([
                 'status' => 'success',
                 'message' => 'Order items retrieved successfully',
                 'data' => [
-                    'order' => $order,
-                    'items' => $orderItems,
-                    'total_amount' => $totalAmount
+                    'order' => [
+                        'id' => $order->id,
+                        'reference_number' => $order->reference_number,
+                        'name' => $order->name,
+                        'status' => $order->status,
+                        'total_amount' => number_format((float)$totalAmount, 2, '.', ''),
+                        'delivery_address' => $order->delivery_address,
+                        'contact_number' => $order->contact_number,
+                        'created_at' => $order->created_at->format('Y-m-d H:i:s')
+                    ],
+                    'items' => $formattedItems
                 ]
             ]);
         } catch (\Exception $e) {
@@ -346,6 +370,7 @@ class OrderItemController extends Controller
                 'data' => [
                     'order' => [
                         'id' => $order->id,
+                        'reference_number' => $order->reference_number, // Add reference number
                         'name' => $order->name,
                         // Make sure order image is properly passed through
                         'image' => $order->image,
