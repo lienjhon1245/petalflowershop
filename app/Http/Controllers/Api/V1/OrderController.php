@@ -26,7 +26,7 @@ class OrderController extends Controller
     public function placeOrder(Request $request)
     {
         try {
-            // Validate request
+            // Update validation rules to include proof
             $validated = $request->validate([
                 'customer_id' => 'required|exists:users,id',
                 'name' => 'nullable|string|max:255',
@@ -37,10 +37,20 @@ class OrderController extends Controller
                 'total_amount' => 'required|numeric',
                 'price' => 'nullable|numeric', // Add validation for price
                 'image' => 'nullable|string',  // Add validation for image
+                'proof' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:2048', // Add this line
                 'notes' => 'nullable|string'
             ]);
 
             DB::beginTransaction();
+
+            // Handle proof upload
+            $proofPath = null;
+            if ($request->hasFile('proof')) {
+                $file = $request->file('proof');
+                $filename = time() . '_proof.' . $file->getClientOriginalExtension();
+                $file->move('proofs', $filename);
+                $proofPath = $filename;
+            }
 
             // Get active cart
             $cart = Cart::where('user_id', Auth::id())
@@ -107,6 +117,11 @@ class OrderController extends Controller
                 }
             }
 
+            // Calculate total amount including delivery fee
+            $totalAmount = $cartItems->sum(function($item) {
+                return ($item->price_at_time_of_addition * $item->quantity) + $item->delivery_fee;
+            });
+
             // Create order
             $order = Order::create([
                 'name' => $validated['name'],
@@ -116,11 +131,14 @@ class OrderController extends Controller
                 'contact_number' => $validated['contact_number'],
                 'payment_method' => $validated['payment_method'],
                 'payment_status' => $validated['payment_status'],
-                'total_amount' => $validated['total_amount'],
+                'total_amount' => $totalAmount,
                 'price' => $validated['price'] ?? null, // Add price field
                 'image' => $validated['image'] ?? null, // Add image field
+                'proof' => $proofPath, // Add this line
                 'status' => 'pending',
-                'notes' => $validated['notes'] ?? null
+                'notes' => $validated['notes'] ?? null,
+                'delivery_location' => $cartItems->first()->delivery_location,
+                'delivery_fee' => $cartItems->first()->delivery_fee
                 // No need to set reference_number - it's handled by the boot method
             ]);
 
@@ -155,7 +173,9 @@ class OrderController extends Controller
                 'success' => true,
                 'message' => 'Order placed successfully',
                 'data' => [
-                    'order' => $order,
+                    'order' => array_merge($order->toArray(), [
+                        'proof' => $order->proof ? asset('proofs/' . $order->proof) : null
+                    ]),
                     'reference_number' => $order->reference_number // Include the auto-generated reference
                 ]
             ]);

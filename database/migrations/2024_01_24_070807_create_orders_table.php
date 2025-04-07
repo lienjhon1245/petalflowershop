@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('proof')->nullable();
             $table->string('image')->nullable();
             $table->string('payment_status')->default('pending');
+            $table->timestamp('payment_date')->nullable();
             $table->date('delivery_date')->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();

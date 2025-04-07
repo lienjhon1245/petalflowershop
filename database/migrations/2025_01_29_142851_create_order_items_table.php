@@ -16,12 +16,14 @@ return new class extends Migration {
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->string('name')->nullable();
-            $table->string('image')->nullable(); // Removed ->after('name')
+            $table->string('image')->nullable();
             $table->integer('quantity');
             $table->decimal('price', 10, 2);
-            $table->decimal('total_price', 10, 2)->nullable(); // Removed ->after('price')
+            $table->decimal('total_price', 10, 2)->nullable();
             $table->text('custom_message')->nullable();
             $table->date('delivery_date')->nullable();
+            $table->string('delivery_location')->nullable();
+            $table->decimal('delivery_fee', 10, 2)->nullable();
             $table->timestamps();
         });
 

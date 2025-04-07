@@ -28,26 +28,22 @@ class Order extends Model
         'proof',       // Add this line
     ];
 
-
+    public static function generateReferenceNumber()
+    {
+        $latest = self::latest()->first();
+        $number = $latest ? intval(substr($latest->reference_number, -10)) + 1 : 1;
+        return 'PFS-OR-' . str_pad($number, 10, '0', STR_PAD_LEFT);
+    }
 
     protected static function boot()
-{
-    parent::boot();
-    
-    static::creating(function ($order) {
-        // Get the latest order
-        $latestOrder = static::latest()->first();
+    {
+        parent::boot();
         
-        // If no order exists, start from PPS0000000001, else increment from the last order
-        if (!$latestOrder) {
-            $order->reference_number = 'PPS0000000001';
-        } else {
-            $lastNumber = intval(substr($latestOrder->reference_number, 3));
-            $newNumber = str_pad($lastNumber + 1, 10, '0', STR_PAD_LEFT);
-            $order->reference_number = 'PPS' . $newNumber;
-        }
-    });
-}
+        static::creating(function ($order) {
+            $order->reference_number = self::generateReferenceNumber();
+        });
+    }
+
     public function customer()
     {
         return $this->belongsTo(User::class, 'customer_id');
@@ -71,5 +67,10 @@ class Order extends Model
     public function orderItems()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function deliveryFee()
+    {
+        return $this->belongsTo(DeliveryFee::class);
     }
 }

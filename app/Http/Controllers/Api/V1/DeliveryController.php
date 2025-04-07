@@ -115,31 +115,49 @@ class DeliveryController extends Controller
      */
     public function markAsDelivered(Request $request, $order_id)
     {
-        // Find the order
-        $order = Order::findOrFail($order_id);
-        
-        // Validate input
-        $validated = $request->validate([
-            'delivery_date' => 'required|date',
-            'notes' => 'nullable|string'
-        ]);
-        
-        // Update order
-        $order->status = 'delivered';
-        $order->delivery_date = $validated['delivery_date'];
-        
-        // Add notes if provided
-        if (isset($validated['notes'])) {
-            $order->notes = $validated['notes'];
+        try {
+            // Find the order
+            $order = Order::findOrFail($order_id);
+            
+            // Validate input
+            $validated = $request->validate([
+                'delivery_date' => 'required|date',
+                'notes' => 'nullable|string',
+                'payment_status' => 'required|in:paid,pending'
+            ]);
+            
+            // Update order
+            $order->status = 'delivered';
+            $order->delivery_date = $validated['delivery_date'];
+            
+            // Handle payment status
+            if ($validated['payment_status'] === 'paid') {
+                $order->payment_status = 'paid';
+                $order->payment_date = now();
+            }
+            
+            // Add notes if provided
+            if (isset($validated['notes'])) {
+                $order->notes = $validated['notes'];
+            }
+            
+            $order->save();
+
+            // Refresh the model to get updated data
+            $order->refresh();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Order marked as delivered' . ($validated['payment_status'] === 'paid' ? ' and paid' : ''),
+                'data' => $order
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error processing delivery: ' . $e->getMessage()
+            ], 500);
         }
-        
-        $order->save();
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Order marked as delivered successfully',
-            'data' => $order
-        ]);
     }
 
     public function getStats(Request $request)

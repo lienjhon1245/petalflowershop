@@ -17,7 +17,9 @@ class CartItem extends Model
         'quantity',
         'price_at_time_of_addition',
         'custom_message',
-        'delivery_date'
+        'delivery_date',
+        'delivery_location',
+        'delivery_fee'
     ];
 
     // Relationship with Cart
@@ -36,5 +38,11 @@ class CartItem extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    // Relationship with DeliveryFee
+    public function deliveryFee()
+    {
+        return $this->belongsTo(DeliveryFee::class);
     }
 }

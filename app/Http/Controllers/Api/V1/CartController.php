@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth; // For getting the authenticated user
 use App\Models\CartItem; // Model for the cart_items table
 use Illuminate\Support\Facades\Log; // Add this for logging
 use Illuminate\Validation\ValidationException; // Add this for validation exception handling
+use App\Models\DeliveryFee; // Add this line
 
 class CartController extends Controller
 {
@@ -35,73 +36,77 @@ class CartController extends Controller
                 'product_id' => 'required|exists:products,id',
                 'quantity' => 'required|integer|min:1',
                 'price_at_time_of_addition' => 'required|numeric',
-                'name' => 'nullable|string',
-                'image' => 'nullable|string',  // Image can be a URL string
-                'custom_message' => 'nullable|string',
-                'delivery_date' => 'required|date'
+                'delivery_location' => 'required|string|in:Amlan,Tanjay,Bais,Siaton,Bayawan,Dumaguete',
+                'delivery_date' => 'required|date',
+                'custom_message' => 'nullable|string'
             ]);
 
-            // Get the product with complete details
-            $product = Product::findOrFail($validated['product_id']);
+            // Get delivery fee with debug logging
+            Log::info('Searching for delivery location: ' . strtolower($validated['delivery_location']));
+            
+            $deliveryFee = DeliveryFee::where('location', strtolower($validated['delivery_location']))->first();
+            
+            Log::info('Delivery fee found:', ['fee' => $deliveryFee]);
 
-            // Populate name and image from product if not provided
+            if (!$deliveryFee) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid delivery location. Available locations: amlan, tanjay, bais, siaton, bayawan',
+                    'debug' => [
+                        'requested_location' => $validated['delivery_location'],
+                        'available_locations' => DeliveryFee::pluck('location')
+                    ]
+                ]); // Added missing closing bracket here
+            }
+
+            $product = Product::findOrFail($validated['product_id']);
+            // Check if cart already has items with delivery fee
+            $existingItemWithFee = CartItem::where('cart_id', $cart->id)
+                ->where('delivery_fee', '>', 0)
+                ->first();
+
+            // Set delivery fee to 0 if another item already has it
+            $appliedDeliveryFee = $existingItemWithFee ? 0 : $deliveryFee->fee;
+
+            // Create cart item
             $cartItemData = [
                 'cart_id' => $cart->id,
                 'user_id' => Auth::id(),
-                'product_id' => $product->id,
-                'name' => $validated['name'] ?? $product->name,
-                'image' => $validated['image'] ?? $product->image, // Get image from product
+                'product_id' => $validated['product_id'],
+                'name' => $product->name,
+                'image' => $product->image,
                 'quantity' => $validated['quantity'],
                 'price_at_time_of_addition' => $validated['price_at_time_of_addition'],
                 'custom_message' => $validated['custom_message'] ?? null,
-                'delivery_date' => $validated['delivery_date']
+                'delivery_date' => $validated['delivery_date'],
+                'delivery_location' => $validated['delivery_location'],
+                'delivery_fee' => $appliedDeliveryFee
             ];
 
-            // Check if item already exists in cart
-            $existingItem = CartItem::where('cart_id', $cart->id)
-                ->where('product_id', $product->id)
-                ->first();
-
-            if ($existingItem) {
-                // Update quantity if item already exists
-                $existingItem->quantity += $validated['quantity'];
-                
-                // Update other fields if not set but now available
-                if ($existingItem->name === null && isset($cartItemData['name'])) {
-                    $existingItem->name = $cartItemData['name'];
-                }
-                
-                if ($existingItem->image === null && isset($cartItemData['image'])) {
-                    $existingItem->image = $cartItemData['image'];
-                }
-                
-                $existingItem->save();
-                
-                // Load the product relationship
-                $existingItem->load('product');
-                
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'Cart item quantity updated',
-                    'data' => $existingItem
-                ]);
-            }
-
-            // Create new cart item
             $cartItem = CartItem::create($cartItemData);
-            
-            // Load the product relationship for the response
-            $cartItem->load('product');
+
+            // Calculate total without using closure
+            $subtotal = CartItem::where('cart_id', $cart->id)
+                ->selectRaw('SUM(quantity * price_at_time_of_addition) as total')
+                ->value('total') ?? 0;
+
+            // Get the single delivery fee from the first item that has it
+            $cartDeliveryFee = CartItem::where('cart_id', $cart->id)
+                ->where('delivery_fee', '>', 0)
+                ->value('delivery_fee') ?? 0;
 
             return response()->json([
                 'status' => 'success',
                 'message' => 'Product added to cart',
-                'data' => $cartItem
+                'data' => [
+                    'cart_item' => $cartItem->load('product'),
+                    'delivery_fee' => number_format($cartDeliveryFee, 2),
+                    'total_with_delivery' => $subtotal + $cartDeliveryFee
+                ]
             ], 201);
 
         } catch (ValidationException $e) {
             return response()->json([
-                'status' => 'error',
                 'message' => 'Validation error',
                 'errors' => $e->errors()
             ], 422);
@@ -118,6 +123,7 @@ class CartController extends Controller
     public function removeFromCart(Request $request)
     {
         try {
+            // Add missing validation array
             $validated = $request->validate([
                 'cart_item_id' => 'required|integer|exists:cart_items,id'
             ]);
@@ -312,17 +318,40 @@ class CartController extends Controller
                 ->with('product')
                 ->get();
                 
-            // Calculate total
+            // Calculate total including delivery fees
             $total = $cartItems->sum(function($item) {
-                return $item->quantity * $item->price_at_time_of_addition;
+                return ($item->quantity * $item->price_at_time_of_addition) + ($item->delivery_fee ?? 0);
+            });
+
+            // Format cart items with delivery info
+            $formattedItems = $cartItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'name' => $item->name,
+                    'image' => $item->image,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price_at_time_of_addition,
+                    'custom_message' => $item->custom_message,
+                    'delivery_date' => $item->delivery_date,
+                    'delivery_location' => $item->delivery_location,
+                    'delivery_fee' => number_format($item->delivery_fee ?? 0, 2),
+                    'subtotal' => number_format($item->quantity * $item->price_at_time_of_addition, 2),
+                    'total_with_delivery' => number_format(
+                        ($item->quantity * $item->price_at_time_of_addition) + ($item->delivery_fee ?? 0),
+                        2
+                    ),
+                    'product' => $item->product
+                ];
             });
             
             return response()->json([
                 'status' => 'success',
                 'message' => 'Cart items retrieved successfully',
                 'data' => [
-                    'items' => $cartItems,
-                    'total' => $total
+                    'items' => $formattedItems,
+                    'total_items' => $cartItems->count(),
+                    'total' => number_format($total, 2)
                 ]
             ]);
             
