@@ -24,31 +24,48 @@ class DeliveryController extends Controller
     }
 
     public function getOrderDetails($order_id)
-    {
-        try {
-            $order = Order::with(['orderItems.product'])
-                ->findOrFail($order_id);
-            
-            // Format the order data to include reference number
-            $formattedOrder = [
-                'id' => $order->id,
-                'reference_number' => $order->reference_number,
-                // ...rest of your order details...
-            ];
-            
-            return response()->json([
-                'success' => true,
-                'data' => $formattedOrder
-            ]);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error retrieving order details',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+{
+    try {
+        $order = Order::with(['orderItems.product'])
+            ->findOrFail($order_id);
+        
+        // Add missing order details
+        $formattedOrder = [
+            'id' => $order->id,
+            'reference_number' => $order->reference_number,
+            'customer_name' => $order->customer->name ?? 'N/A',
+            'total_amount' => number_format($order->total_amount, 2),
+            'status' => $order->status,
+            'delivery_address' => $order->delivery_address,
+            'contact_number' => $order->contact_number,
+            'payment_status' => $order->payment_status,
+            'delivery_date' => $order->delivery_date,
+            'notes' => $order->notes,
+            'items' => $order->orderItems->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'product_name' => $item->product->name,
+                    'quantity' => $item->quantity,
+                    'price' => number_format($item->price, 2),
+                    'subtotal' => number_format($item->price * $item->quantity, 2),
+                    'custom_message' => $item->custom_message
+                ];
+            })
+        ];
+        
+        return response()->json([
+            'success' => true,
+            'data' => $formattedOrder
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error retrieving order details',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function updateOrderStatus(Request $request, $order_id)
     {
