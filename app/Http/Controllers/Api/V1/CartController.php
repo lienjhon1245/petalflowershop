@@ -41,49 +41,65 @@ class CartController extends Controller
                 'custom_message' => 'nullable|string'
             ]);
 
-            // Get delivery fee with debug logging
-            Log::info('Searching for delivery location: ' . strtolower($validated['delivery_location']));
-            
-            $deliveryFee = DeliveryFee::where('location', strtolower($validated['delivery_location']))->first();
-            
-            Log::info('Delivery fee found:', ['fee' => $deliveryFee]);
-
-            if (!$deliveryFee) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Invalid delivery location. Available locations: amlan, tanjay, bais, siaton, bayawan',
-                    'debug' => [
-                        'requested_location' => $validated['delivery_location'],
-                        'available_locations' => DeliveryFee::pluck('location')
-                    ]
-                ]); // Added missing closing bracket here
-            }
-
-            $product = Product::findOrFail($validated['product_id']);
-            // Check if cart already has items with delivery fee
-            $existingItemWithFee = CartItem::where('cart_id', $cart->id)
-                ->where('delivery_fee', '>', 0)
+            // Check if product already exists in cart with same delivery date and custom message
+            $existingCartItem = CartItem::where('cart_id', $cart->id)
+                ->where('product_id', $validated['product_id'])
+                ->where('delivery_date', $validated['delivery_date'])
+                ->where('delivery_location', $validated['delivery_location'])
+                ->where(function ($query) use ($validated) {
+                    $query->where('custom_message', $validated['custom_message'])
+                        ->orWhereNull('custom_message');
+                })
                 ->first();
 
-            // Set delivery fee to 0 if another item already has it
-            $appliedDeliveryFee = $existingItemWithFee ? 0 : $deliveryFee->fee;
+            if ($existingCartItem) {
+                // Update existing cart item
+                $existingCartItem->quantity += $validated['quantity'];
+                $existingCartItem->save();
 
-            // Create cart item
-            $cartItemData = [
-                'cart_id' => $cart->id,
-                'user_id' => Auth::id(),
-                'product_id' => $validated['product_id'],
-                'name' => $product->name,
-                'image' => $product->image,
-                'quantity' => $validated['quantity'],
-                'price_at_time_of_addition' => $validated['price_at_time_of_addition'],
-                'custom_message' => $validated['custom_message'] ?? null,
-                'delivery_date' => $validated['delivery_date'],
-                'delivery_location' => $validated['delivery_location'],
-                'delivery_fee' => $appliedDeliveryFee
-            ];
+                $cartItem = $existingCartItem;
+            } else {
+                // Get delivery fee
+                $deliveryFee = DeliveryFee::where('location', strtolower($validated['delivery_location']))->first();
 
-            $cartItem = CartItem::create($cartItemData);
+                if (!$deliveryFee) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Invalid delivery location. Available locations: amlan, tanjay, bais, siaton, bayawan',
+                        'debug' => [
+                            'requested_location' => $validated['delivery_location'],
+                            'available_locations' => DeliveryFee::pluck('location')
+                        ]
+                    ]);
+                }
+
+                $product = Product::findOrFail($validated['product_id']);
+                
+                // Check if cart already has items with delivery fee
+                $existingItemWithFee = CartItem::where('cart_id', $cart->id)
+                    ->where('delivery_fee', '>', 0)
+                    ->first();
+
+                // Set delivery fee to 0 if another item already has it
+                $appliedDeliveryFee = $existingItemWithFee ? 0 : $deliveryFee->fee;
+
+                // Create new cart item
+                $cartItemData = [
+                    'cart_id' => $cart->id,
+                    'user_id' => Auth::id(),
+                    'product_id' => $validated['product_id'],
+                    'name' => $product->name,
+                    'image' => $product->image,
+                    'quantity' => $validated['quantity'],
+                    'price_at_time_of_addition' => $validated['price_at_time_of_addition'],
+                    'custom_message' => $validated['custom_message'] ?? null,
+                    'delivery_date' => $validated['delivery_date'],
+                    'delivery_location' => $validated['delivery_location'],
+                    'delivery_fee' => $appliedDeliveryFee
+                ];
+
+                $cartItem = CartItem::create($cartItemData);
+            }
 
             // Calculate total without using closure
             $subtotal = CartItem::where('cart_id', $cart->id)
@@ -97,7 +113,7 @@ class CartController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Product added to cart',
+                'message' => $existingCartItem ? 'Cart item quantity updated' : 'Product added to cart',
                 'data' => [
                     'cart_item' => $cartItem->load('product'),
                     'delivery_fee' => number_format($cartDeliveryFee, 2),

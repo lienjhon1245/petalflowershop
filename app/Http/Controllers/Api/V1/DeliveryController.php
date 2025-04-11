@@ -24,75 +24,107 @@ class DeliveryController extends Controller
     }
 
     public function getOrderDetails($order_id)
-{
-    try {
-        $order = Order::with(['orderItems.product'])
-            ->findOrFail($order_id);
-        
-        // Add missing order details
-        $formattedOrder = [
-            'id' => $order->id,
-            'reference_number' => $order->reference_number,
-            'customer_name' => $order->customer->name ?? 'N/A',
-            'total_amount' => number_format($order->total_amount, 2),
-            'status' => $order->status,
-            'delivery_address' => $order->delivery_address,
-            'contact_number' => $order->contact_number,
-            'payment_status' => $order->payment_status,
-            'delivery_date' => $order->delivery_date,
-            'notes' => $order->notes,
-            'items' => $order->orderItems->map(function($item) {
-                return [
-                    'id' => $item->id,
-                    'product_name' => $item->product->name,
-                    'quantity' => $item->quantity,
-                    'price' => number_format($item->price, 2),
-                    'subtotal' => number_format($item->price * $item->quantity, 2),
-                    'custom_message' => $item->custom_message
-                ];
-            })
-        ];
-        
-        return response()->json([
-            'success' => true,
-            'data' => $formattedOrder
-        ]);
-        
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Error retrieving order details',
-            'error' => $e->getMessage()
-        ], 500);
+    {
+        try {
+            $order = Order::with(['orderItems.product', 'customer'])
+                ->findOrFail($order_id);
+            
+            $formattedOrder = [
+                'id' => $order->id,
+                'reference_number' => $order->reference_number,
+                'customer_name' => $order->customer ? $order->customer->name : 'N/A',
+                'total_amount' => number_format($order->total_amount, 2),
+                'status' => $order->status,
+                'delivery_address' => $order->delivery_address,
+                'contact_number' => $order->contact_number,
+                'payment_method' => $order->payment_method,
+                'payment_status' => $order->payment_status,
+                'payment_date' => $order->payment_date,
+                'delivery_date' => $order->delivery_date,
+                'notes' => $order->notes,
+                'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                'updated_at' => $order->updated_at->format('Y-m-d H:i:s'),
+                'items' => $order->orderItems->map(function($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_name' => $item->product->name,
+                        'quantity' => $item->quantity,
+                        'price' => number_format($item->price, 2),
+                        'image' => $item->product->image,
+                        'subtotal' => number_format($item->price * $item->quantity, 2),
+                        'custom_message' => $item->custom_message,
+                        'delivery_date' => $item->delivery_date
+                    ];
+                })
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'data' => $formattedOrder
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error retrieving order details',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     public function updateOrderStatus(Request $request, $order_id)
     {
-        // Find the order
-        $order = Order::findOrFail($order_id);
-        
-        // Validate input
-        $validated = $request->validate([
-            'status' => 'required|string|in:pending,processing,delivering,delivered,cancelled',
-            'notes' => 'nullable|string'
-        ]);
-        
-        // Update order status
-        $order->status = $validated['status'];
-        
-        // Add notes if provided
-        if (isset($validated['notes'])) {
-            $order->notes = $validated['notes'];
+        try {
+            // Find the order with customer relationship
+            $order = Order::with(['customer', 'orderItems.product'])
+                ->findOrFail($order_id);
+            
+            // Validate input
+            $validated = $request->validate([
+                'status' => 'required|string|in:pending,processing,delivering,delivered,cancelled',
+                'notes' => 'nullable|string'
+            ]);
+            
+            // Update order status
+            $order->status = $validated['status'];
+            
+            // Add notes if provided
+            if (isset($validated['notes'])) {
+                $order->notes = $validated['notes'];
+            }
+            
+            $order->save();
+            
+            // Format the response
+            $formattedOrder = [
+                'id' => $order->id,
+                'reference_number' => $order->reference_number,
+                'customer_name' => $order->customer ? $order->customer->name : 'N/A',
+                'total_amount' => number_format($order->total_amount, 2),
+                'status' => $order->status,
+                'delivery_address' => $order->delivery_address,
+                'contact_number' => $order->contact_number,
+                'payment_method' => $order->payment_method,
+                'payment_status' => $order->payment_status,
+                'notes' => $order->notes,
+                'delivery_date' => $order->delivery_date,
+                'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                'updated_at' => $order->updated_at->format('Y-m-d H:i:s')
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Order status updated successfully',
+                'data' => $formattedOrder
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating order status',
+                'error' => $e->getMessage()
+            ], 500);
         }
-        
-        $order->save();
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Order status updated successfully',
-            'data' => $order
-        ]);
     }
 
     public function uploadPaymentProof(Request $request, $order_id)
@@ -133,8 +165,9 @@ class DeliveryController extends Controller
     public function markAsDelivered(Request $request, $order_id)
     {
         try {
-            // Find the order
-            $order = Order::findOrFail($order_id);
+            // Find the order with customer relationship
+            $order = Order::with(['customer', 'orderItems.product'])
+                ->findOrFail($order_id);
             
             // Validate input
             $validated = $request->validate([
@@ -145,7 +178,7 @@ class DeliveryController extends Controller
             
             // Update order
             $order->status = 'delivered';
-            $order->delivery_date = $validated['delivery_date'];
+            $order->delivery_date = Carbon::parse($validated['delivery_date'])->format('Y-m-d');
             
             // Handle payment status
             if ($validated['payment_status'] === 'paid') {
@@ -160,16 +193,41 @@ class DeliveryController extends Controller
             
             $order->save();
 
-            // Refresh the model to get updated data
-            $order->refresh();
+            // Format the response
+            $formattedOrder = [
+                'id' => $order->id,
+                'reference_number' => $order->reference_number,
+                'customer_name' => $order->customer ? $order->customer->name : 'N/A',
+                'total_amount' => number_format($order->total_amount, 2),
+                'status' => $order->status,
+                'delivery_address' => $order->delivery_address,
+                'contact_number' => $order->contact_number,
+                'payment_method' => $order->payment_method,
+                'payment_status' => $order->payment_status,
+                'payment_date' => $order->payment_date ? $order->payment_date->format('Y-m-d H:i:s') : null,
+                'delivery_date' => $order->delivery_date,
+                'notes' => $order->notes,
+                'created_at' => $order->created_at->format('Y-m-d H:i:s'),
+                'updated_at' => $order->updated_at->format('Y-m-d H:i:s'),
+                'items' => $order->orderItems->map(function($item) {
+                    return [
+                        'id' => $item->id,
+                        'product_name' => $item->product->name,
+                        'quantity' => $item->quantity,
+                        'price' => number_format($item->price, 2),
+                        'subtotal' => number_format($item->price * $item->quantity, 2)
+                    ];
+                })
+            ];
             
             return response()->json([
                 'success' => true,
                 'message' => 'Order marked as delivered' . ($validated['payment_status'] === 'paid' ? ' and paid' : ''),
-                'data' => $order
+                'data' => $formattedOrder
             ]);
             
         } catch (\Exception $e) {
+            \Log::error('Delivery marking error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error processing delivery: ' . $e->getMessage()
@@ -323,8 +381,8 @@ class DeliveryController extends Controller
         $status = $request->query('status');
         $customerId = $request->query('customer_id');
         
-        // Build query
-        $query = Order::with(['orderItems.product']);
+        // Build query with customer relationship
+        $query = Order::with(['orderItems.product', 'customer']);
         
         // Apply filters if provided
         if ($status) {
@@ -342,7 +400,8 @@ class DeliveryController extends Controller
         $formattedOrders = $orders->map(function ($order) {
             return [
                 'id' => $order->id,
-                'reference_number' => $order->reference_number, // Changed from order_number
+                'reference_number' => $order->reference_number,
+                'customer_name' => $order->customer ? $order->customer->name : 'N/A', // Add customer name
                 'total_amount' => number_format($order->total_amount, 2),
                 'status' => $order->status,
                 'delivery_address' => $order->delivery_address,
@@ -374,5 +433,53 @@ class DeliveryController extends Controller
             'success' => true,
             'data' => $formattedOrders
         ]);
+    }
+
+    public function orders()
+    {
+        try {
+            $orders = Order::with(['orderItems.product', 'customer']) // Changed from 'user' to 'customer'
+                ->where('status', '!=', 'cancelled')
+                ->get()
+                ->map(function ($order) {
+                    return [
+                        'id' => $order->id,
+                        'reference_number' => $order->reference_number,
+                        'customer_name' => $order->customer ? $order->customer->name : 'N/A', // Changed from user to customer
+                        'total_amount' => number_format($order->total_amount, 2),
+                        'status' => $order->status,
+                        'delivery_address' => $order->delivery_address,
+                        'contact_number' => $order->contact_number,
+                        'payment_method' => $order->payment_method,
+                        'payment_status' => $order->payment_status,
+                        'created_at' => $order->created_at,
+                        'notes' => $order->notes,
+                        'delivery_man_id' => $order->delivery_man_id,
+                        'items' => $order->orderItems->map(function ($item) {
+                            return [
+                                'id' => $item->id,
+                                'product_name' => $item->product->name,
+                                'quantity' => $item->quantity,
+                                'price' => $item->price,
+                                'delivery_date' => $item->delivery_date,
+                                'delivery_location' => $item->delivery_location,
+                                'custom_message' => $item->custom_message
+                            ];
+                        })
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $orders
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Order fetch error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching orders: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

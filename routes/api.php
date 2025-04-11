@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\DeliveryTransactionController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\DeliveryOrderController;
+use App\Http\Controllers\Api\V1\OrderItemController;
 
 // Public routes
 Route::post('/register', [RegisterController::class, 'register']);
@@ -21,6 +22,10 @@ Route::post('/login', [LoginController::class, 'login']);
 // Make products public
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
+
+// Public routes for viewing order items
+Route::get('/order-items/all', [OrderItemController::class, 'getAllItems']);
+Route::get('/order-items/{id}', [OrderItemController::class, 'getItem']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -141,7 +146,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // Create a temporary route in your api.php file to check available orders
 Route::get('/check-orders', function() {
     return response()->json([
-        'orders' => App\Models\Order::all(['id', 'created_at'])
+        'orders' => App\Models.Order::all(['id', 'created_at'])
     ]);
 });
 
@@ -315,6 +320,14 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Keep legacy route for compatibility
     Route::get('orders/{order_id}/get-items', [App\Http\Controllers\Api\V1\OrderItemController::class, 'getItemsByOrder']);
+    
+    // Add these routes within your existing routes
+    Route::get('/order-items-with-user', [OrderItemController::class, 'getAllWithUser']);
+    Route::get('/order-items-with-user/{id}', [OrderItemController::class, 'getWithUser']);
+    
+    // Protected routes for order items
+    Route::get('/customer/order-items', [OrderItemController::class, 'getCustomerItems']);
+    Route::get('/order-items/details/{id}', [OrderItemController::class, 'getItemDetails']);
 });
 
 // Public route for viewing order items

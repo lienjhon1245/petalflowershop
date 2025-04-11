@@ -199,46 +199,70 @@ class OrderController extends Controller
 
     public function cancelOrder(Request $request)
     {
-        $request->validate([
-            'order_id' => 'required|exists:orders,id'
-        ]);
-
         try {
+            // Validate request
+            $request->validate([
+                'order_id' => 'required|exists:orders,id',
+                'reason' => 'nullable|string|max:255'
+            ]);
+
             DB::beginTransaction();
 
+            // Find order and check ownership
             $order = Order::with('items.product')
                 ->where('id', $request->order_id)
                 ->where('user_id', Auth::id())
-                ->firstOrFail();
+                ->first();
+
+            // Check if order exists
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found or you do not have permission to cancel it'
+                ], 404);
+            }
 
             // Check if order can be cancelled
             if (!in_array($order->status, ['pending', 'processing'])) {
                 return response()->json([
-                    'message' => 'Order cannot be cancelled'
+                    'success' => false,
+                    'message' => 'Order cannot be cancelled - current status: ' . $order->status
                 ], 400);
             }
 
-            // Restore stock
+            // Restore stock for each item
             foreach ($order->items as $item) {
                 $item->product->increment('stock', $item->quantity);
             }
 
-            // Update order status
+            // Update order status and add cancellation reason
             $order->update([
                 'status' => 'cancelled',
-                'payment_status' => 'cancelled'
+                'payment_status' => 'cancelled',
+                'notes' => $request->reason ?? 'Cancelled by customer'
             ]);
 
             DB::commit();
 
             return response()->json([
+                'success' => true,
                 'message' => 'Order cancelled successfully',
-                'order' => $order->fresh()
+                'data' => $order->fresh()
             ]);
 
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => $e->getMessage()], 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error cancelling order: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -261,6 +285,17 @@ class OrderController extends Controller
         ]);
 
         $order = Order::create($orderData);
+
+        $orderItem = OrderItem::create([
+            'order_id' => $order->id,
+            'product_name' => $product->name,
+            'quantity' => $cartItem->quantity,
+            'price' => $cartItem->price,
+            'total_price' => $cartItem->quantity * $cartItem->price,
+            'delivery_date' => $request->delivery_date,
+            'delivery_location' => $order->delivery_location, // Make sure this is set
+            'customer_name' => auth()->user()->name
+        ]);
 
         return response()->json([
             'success' => true,
@@ -646,6 +681,35 @@ class OrderController extends Controller
         }
     }
 
+    /**
+     * Get order items with customer information
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getOrderItemsWithCustomerInfo()
+    {
+        try {
+            // In your method where you fetch order items
+            $orderItems = OrderItem::with(['order.user'])->get();
+
+            // When returning the data, include the user information
+            return response()->json([
+                'status' => 'success',
+                'data' => $orderItems->map(function($item) {
+                    return [
+                        // ...existing order item fields...
+                        'customer_name' => $item->order->user->name,
+                        'customer_email' => $item->order->user->email,
+                    ];
+                })
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve order items: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
 
 

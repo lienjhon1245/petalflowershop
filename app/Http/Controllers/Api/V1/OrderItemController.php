@@ -432,4 +432,85 @@ class OrderItemController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    /**
+     * Get all order items with user information
+     */
+    public function getAllWithUser()
+    {
+        $orderItems = OrderItem::with(['user:id,name'])->get();
+        
+        return response()->json([
+            'status' => 'success',
+            'data' => $orderItems
+        ]);
+    }
+
+    /**
+     * Get specific order item with user information
+     */
+    public function getWithUser($id)
+    {
+        $orderItem = OrderItem::with(['user:id,name'])->findOrFail($id);
+        
+        return response()->json([
+            'status' => 'success',
+            'data' => $orderItem
+        ]);
+    }
+
+    /**
+     * Get all items with minimal information
+     * 
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAllItems()
+    {
+        $items = OrderItem::with(['product', 'order.user'])->get();
+        
+        return response()->json([
+            'status' => 'success',
+            'data' => $items->map(function($item) {
+                return [
+                    'id' => $item->id,
+                    'order_id' => $item->order_id,
+                    'product_name' => $item->name,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'total_price' => $item->total_price,
+                    'delivery_date' => $item->delivery_date,
+                    'delivery_location' => $item->delivery_location,
+                    'customer_name' => $item->order->user->name ?? 'N/A',
+                    'created_at' => $item->created_at->format('Y-m-d H:i:s')
+                ];
+            })
+        ]);
+    }
+
+    /**
+     * Get specific item with minimal information
+     * 
+     * @param int $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getItem($id)
+    {
+        $item = OrderItem::with(['product', 'order.user'])->findOrFail($id);
+        
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'id' => $item->id,
+                'order_id' => $item->order_id,
+                'product_name' => $item->name,
+                'quantity' => $item->quantity,
+                'price' => $item->price,
+                'total_price' => $item->total_price,
+                'delivery_date' => $item->delivery_date,
+                'delivery_location' => $item->delivery_location,
+                'customer_name' => $item->order->user->name ?? 'N/A',
+                'created_at' => $item->created_at->format('Y-m-d H:i:s')
+            ]
+        ]);
+    }
 }
