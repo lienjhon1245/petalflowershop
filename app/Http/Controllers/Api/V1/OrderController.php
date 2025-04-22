@@ -488,59 +488,99 @@ class OrderController extends Controller
     public function uploadProof(Request $request, $id)
     {
         try {
+            // Debug request
+            Log::info('Upload proof request:', [
+                'files' => $request->allFiles(),
+                'order_id' => $id
+            ]);
+
             // Validate the request data
             $request->validate([
-                'proof' => 'required|image|max:5120', // Max 5MB, must be an image
+                'proof' => 'required|image|mimes:jpeg,png,jpg|max:5120',
             ]);
 
             // Find the order
             $order = Order::findOrFail($id);
             
+            // Debug order
+            Log::info('Order found:', [
+                'order_id' => $order->id,
+                'customer_id' => $order->customer_id,
+                'auth_id' => Auth::id()
+            ]);
+            
             // Check if user is authorized to update this order
             if ($order->customer_id != Auth::id()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not authorized to update this order'
+                    'message' => 'You are not authorized to update this order',
+                    'customer_id' => $order->customer_id,
+                    'auth_id' => Auth::id()
                 ], 403);
             }
 
-            // Handle the file upload
-            if ($request->hasFile('proof')) {
-                // Delete previous proof if exists
-                if ($order->proof && Storage::disk('public')->exists($order->proof)) {
-                    Storage::disk('public')->delete($order->proof);
-                }
-
-                // Store the new file
-                $path = $request->file('proof')->store('proofs', 'public');
-                
-                // Update order with new proof path
-                $order->proof = $path;
-                $order->save();
-
+            if (!$request->hasFile('proof')) {
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Proof uploaded successfully',
-                    'data' => [
-                        'order_id' => $order->id,
-                        'proof' => asset('storage/' . $order->proof)
-                    ]
-                ]);
+                    'success' => false,
+                    'message' => 'No proof file was uploaded'
+                ], 400);
             }
 
+            $file = $request->file('proof');
+            
+            // Debug file
+            Log::info('File details:', [
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize()
+            ]);
+
+            // Create proofs directory if it doesn't exist
+            $proofPath = public_path('proofs');
+            if (!file_exists($proofPath)) {
+                mkdir($proofPath, 0777, true);
+            }
+
+            // Generate unique filename
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            // Move file
+            try {
+                $file->move($proofPath, $filename);
+            } catch (\Exception $e) {
+                Log::error('File upload failed:', [
+                    'error' => $e->getMessage(),
+                    'path' => $proofPath,
+                    'filename' => $filename
+                ]);
+                throw $e;
+            }
+
+            // Update order
+            $order->proof = $filename;
+            $order->save();
+
             return response()->json([
-                'success' => false,
-                'message' => 'No image was provided'
-            ], 400);
+                'success' => true,
+                'message' => 'Proof uploaded successfully',
+                'data' => [
+                    'order_id' => $order->id,
+                    'proof_url' => asset('proofs/' . $filename)
+                ]
+            ]);
 
         } catch (ValidationException $e) {
+            Log::error('Validation error:', ['errors' => $e->errors()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Proof upload error: ' . $e->getMessage());
+            Log::error('Proof upload error:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Error uploading proof: ' . $e->getMessage()
