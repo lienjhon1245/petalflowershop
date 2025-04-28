@@ -204,7 +204,7 @@ Route::get('/check-all-orders', function() {
 });
 
 Route::get('/create-test-order', function() {
-    $order = new App\Models\Order();
+    $order = new App\Models.Order();
     $order->user_id = 1; // Admin/owner user ID
     $order->customer_id = 1; // Customer ID
     $order->delivery_man_id = 2; // Change this to your delivery man user ID
@@ -347,3 +347,4 @@ Route::get('all-orders', [App\Http\Controllers\Api\V1\OrderController::class, 'g
 
 // Add this to your routes/api.php file
 Route::middleware('auth:sanctum')->get('all-orders', [App\Http\Controllers\Api\V1\OrderController::class, 'getAllOrders']);
+Route::get('/products', [App\Http\Controllers\Api\V1\ProductController::class, 'index']);
