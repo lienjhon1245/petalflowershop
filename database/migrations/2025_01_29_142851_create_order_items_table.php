@@ -24,6 +24,7 @@ return new class extends Migration {
             $table->date('delivery_date')->nullable();
             $table->string('delivery_location')->nullable();
             $table->decimal('delivery_fee', 10, 2)->nullable();
+            $table->json('details')->nullable(); // Added details field to store customization data
             $table->timestamps();
         });
 

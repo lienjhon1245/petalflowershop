@@ -351,6 +351,18 @@ class OrderItemController extends Controller
                     'total_price' => number_format((float)$item->total_price, 2, '.', ''),
                     'custom_message' => $item->custom_message,
                     'delivery_date' => $item->delivery_date,
+                    'delivery_location' => $item->delivery_location,
+                    'delivery_fee' => number_format((float)$item->delivery_fee, 2, '.', ''),
+                    'details' => [
+                        'arrangement' => $item->details['arrangement'] ?? null,
+                        'event' => $item->details['event'] ?? null,
+                        'description' => $item->details['description'] ?? null,
+                        'customization' => [
+                            'flowers' => $item->details['customization']['flowers'] ?? [],
+                            'total_price' => $item->details['customization']['total_price'] ?? 0,
+                            'arrangement_type' => $item->details['customization']['arrangement_type'] ?? null
+                        ]
+                    ],
                     'product' => $item->product ? [
                         'id' => $item->product->id,
                         'name' => $item->product->name,
@@ -416,6 +428,18 @@ class OrderItemController extends Controller
                     'total_price' => number_format((float)$orderItem->total_price, 2, '.', ''),
                     'custom_message' => $orderItem->custom_message,
                     'delivery_date' => $orderItem->delivery_date,
+                    'delivery_location' => $orderItem->delivery_location,
+                    'delivery_fee' => number_format((float)$orderItem->delivery_fee ?? 0.00, 2, '.', ''),
+                    'details' => [
+                        'arrangement' => $orderItem->details['arrangement'] ?? null,
+                        'event' => $orderItem->details['event'] ?? null,
+                        'description' => $orderItem->details['description'] ?? null,
+                        'customization' => [
+                            'flowers' => $orderItem->details['customization']['flowers'] ?? [],
+                            'total_price' => $orderItem->details['customization']['total_price'] ?? 0,
+                            'arrangement_type' => $orderItem->details['customization']['arrangement_type'] ?? null
+                        ]
+                    ],
                     'product' => $orderItem->product ? [
                         'id' => $orderItem->product->id,
                         'name' => $orderItem->product->name,

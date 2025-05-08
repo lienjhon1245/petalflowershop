@@ -14,6 +14,8 @@ use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\DeliveryOrderController;
 use App\Http\Controllers\Api\V1\OrderItemController;
+use App\Http\Controllers\Api\V1\FlowerCustomizerController;
+use App\Http\Controllers\Api\V1\FlowerController;
 
 // Public routes
 Route::post('/register', [RegisterController::class, 'register']);
@@ -348,3 +350,56 @@ Route::get('all-orders', [App\Http\Controllers\Api\V1\OrderController::class, 'g
 // Add this to your routes/api.php file
 Route::middleware('auth:sanctum')->get('all-orders', [App\Http\Controllers\Api\V1\OrderController::class, 'getAllOrders']);
 Route::get('/products', [App\Http\Controllers\Api\V1\ProductController::class, 'index']);
+
+Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+    Route::prefix('flower-customizer')->group(function () {
+        Route::get('/prices', [FlowerCustomizerController::class, 'getPrices']);
+        Route::get('/flowers', [FlowerCustomizerController::class, 'getFlowers']);
+        Route::post('/customize', [FlowerCustomizerController::class, 'customizeFlower']);
+        Route::post('/add-to-cart', [FlowerCustomizerController::class, 'addToCart']);
+    });
+
+    Route::prefix('flowers')->group(function () {
+        Route::get('/prices', [FlowerController::class, 'getPrices']);
+        Route::get('/available', [FlowerController::class, 'getAvailableFlowers']);
+        Route::post('/customize', [FlowerController::class, 'customizeFlower']);
+        Route::get('/check-stock/{flowerId}/{quantity}', [FlowerController::class, 'checkStock']);
+    });
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('flower-customizer')->group(function () {
+        Route::post('/customize', [FlowerCustomizerController::class, 'customizeFlower']);
+        Route::get('/prices', [FlowerCustomizerController::class, 'getPrices']);
+        Route::post('/add-to-cart', [FlowerCustomizerController::class, 'addToCart']);
+    });
+});
+
+Route::group(['prefix' => 'v1'], function () {
+    Route::prefix('flower-customizer')->group(function () {
+        Route::post('/customize', [FlowerCustomizerController::class, 'customizeFlower']);
+        Route::get('/prices', [FlowerCustomizerController::class, 'getPrices']);
+        Route::post('/add-to-cart', [FlowerCustomizerController::class, 'addToCart']);
+    });
+});
+
+Route::group(['prefix' => 'v1'], function () {
+    // Public routes
+    Route::get('flower-customizer/prices', [FlowerCustomizerController::class, 'getPrices']);
+    
+    // Protected routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::prefix('flower-customizer')->group(function () {
+            Route::post('/customize', [FlowerCustomizerController::class, 'customizeFlower']);
+            Route::post('/add-to-cart', [FlowerCustomizerController::class, 'addToCart']);
+        });
+    });
+});
+
+Route::get('flower-customizer/flowers', [FlowerCustomizerController::class, 'getAvailableFlowers']);
+
+
+Route::prefix('flower-customizer')->group(function () {
+    Route::get('/flowers', [FlowerCustomizerController::class, 'getAvailableFlowers']);
+    Route::post('/customize', [FlowerCustomizerController::class, 'customizeFlower']);
+});

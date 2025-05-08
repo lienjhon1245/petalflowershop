@@ -156,7 +156,10 @@ class OrderController extends Controller
                     'price' => $itemPrice,
                     'total_price' => $itemPrice * $itemQuantity, // Calculate total price
                     'custom_message' => $cartItem->custom_message,
-                    'delivery_date' => $cartItem->delivery_date
+                    'delivery_date' => $cartItem->delivery_date,
+                    'delivery_location' => $cartItem->delivery_location,
+                    'delivery_fee' => $cartItem->delivery_fee, // Just pass the value directly
+                    'details' => $cartItem->details // Don't merge delivery_fee into details
                 ]);
             }
 

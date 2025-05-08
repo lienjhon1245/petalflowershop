@@ -11,6 +11,8 @@ use App\Models\CartItem; // Model for the cart_items table
 use Illuminate\Support\Facades\Log; // Add this for logging
 use Illuminate\Validation\ValidationException; // Add this for validation exception handling
 use App\Models\DeliveryFee; // Add this line
+use App\Models\ArrangementPrice;
+use App\Models\EventPackage;
 
 class CartController extends Controller
 {
@@ -211,6 +213,11 @@ class CartController extends Controller
                         'price' => $item->price_at_time_of_addition,
                         'custom_message' => $item->custom_message,
                         'delivery_date' => $item->delivery_date,
+                        'details' => [
+                            'arrangement' => $item->details['arrangement'] ?? null,
+                            'event' => $item->details['event'] ?? null,
+                            'description' => $item->details['description'] ?? null
+                        ],
                         'subtotal' => $item->quantity * $item->price_at_time_of_addition
                     ];
                 }),
@@ -341,6 +348,14 @@ class CartController extends Controller
 
             // Format cart items with delivery info
             $formattedItems = $cartItems->map(function($item) {
+                $arrangementPrice = ArrangementPrice::where('type', $item->arrangement)
+                    ->where('active', true)
+                    ->first();
+                
+                $eventPrice = EventPackage::where('type', $item->event)
+                    ->where('active', true)
+                    ->first();
+
                 return [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
@@ -357,6 +372,20 @@ class CartController extends Controller
                         ($item->quantity * $item->price_at_time_of_addition) + ($item->delivery_fee ?? 0),
                         2
                     ),
+                    'details' => [
+                        'arrangement' => $item->details['arrangement'] ?? null,
+                        'event' => $item->details['event'] ?? null,
+                        'description' => $item->details['description'] ?? null
+                    ],
+                    'arrangement' => [
+                        'type' => $item->arrangement,
+                        'price' => $arrangementPrice ? number_format($arrangementPrice->price, 2) : '0.00'
+                    ],
+                    'event' => [
+                        'type' => $item->event,
+                        'price' => $eventPrice ? number_format($eventPrice->price, 2) : '0.00'
+                    ],
+                    'total_price' => number_format($this->calculateTotalPrice($item), 2),
                     'product' => $item->product
                 ];
             });
@@ -411,5 +440,36 @@ class CartController extends Controller
                 'message' => 'Error fixing cart item names: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    protected function calculateTotalPrice($cartItem)
+    {
+        $basePrice = $cartItem->price_at_time_of_addition * $cartItem->quantity;
+        
+        // Fetch arrangement price
+        $arrangementPrice = ArrangementPrice::where('type', $cartItem->arrangement)
+            ->where('active', true)
+            ->first();
+        
+        // Fetch event package price
+        $eventPrice = EventPackage::where('type', $cartItem->event)
+            ->where('active', true)
+            ->first();
+
+        $total = $basePrice;
+        
+        if ($arrangementPrice) {
+            $total += $arrangementPrice->price;
+        }
+        
+        if ($eventPrice) {
+            $total += $eventPrice->price;
+        }
+
+        if ($cartItem->delivery_fee) {
+            $total += $cartItem->delivery_fee;
+        }
+
+        return $total;
     }
 }

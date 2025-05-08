@@ -10,12 +10,23 @@ class OrderItem extends Model
         'order_id',
         'product_id',
         'name',
-        'image',      // Add this line
+        'image',
         'quantity',
         'price',
         'total_price',
         'custom_message',
-        'delivery_date'
+        'delivery_date',
+        'delivery_location',
+        'delivery_fee',
+        'details'  // Added details field
+    ];
+
+    protected $casts = [
+        'details' => 'array',
+        'price' => 'decimal:2',
+        'total_price' => 'decimal:2',
+        'delivery_fee' => 'decimal:2',
+        'delivery_date' => 'datetime'
     ];
 
     public function order()
